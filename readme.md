@@ -1,0 +1,1 @@
+# Node project setup using best practices

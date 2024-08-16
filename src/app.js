@@ -21,5 +21,11 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Router Import
+const userRouter = require('./routes/user.routes');
+
+
+// Routes Declaration
+app.use('/api/v1/users', userRouter);
 
 module.exports = app;

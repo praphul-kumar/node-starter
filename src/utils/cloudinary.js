@@ -19,7 +19,8 @@ exports.uploadOnCloudinary = async (localFilePath) => {
       });
 
     // File has been uploaded to Cloudinary
-    console.log(uploadResult.url);
+    // console.log(uploadResult.url);
+    fs.unlinkSync(localFilePath);
 
     return uploadResult;
   } catch (err) {

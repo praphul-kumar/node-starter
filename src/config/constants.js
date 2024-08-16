@@ -1,2 +1,2 @@
-exports.DB_NAME = "natours"
+exports.DB_NAME = "node-starter"
 exports.EXPRESS_LIMIT = '16kb';

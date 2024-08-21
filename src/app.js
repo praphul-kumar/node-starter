@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const errorHandler = require('./middlewares/errorHandler.middleware');
 
 const { EXPRESS_LIMIT } = require('./config/constants');
 
@@ -27,5 +28,10 @@ const userRouter = require('./routes/user.routes');
 
 // Routes Declaration
 app.use('/api/v1/users', userRouter);
+
+
+
+// Using Error Handler middleware for centralized error handling
+app.use(errorHandler);
 
 module.exports = app;

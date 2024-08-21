@@ -4,7 +4,7 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { uploadOnCloudinary } = require('../utils/cloudinary');
 const userService = require('../services/user.service');
-const { COOKIE_OPTIONS } = require('../config/constants');
+const { ACCESS_TOKEN, REFRESH_TOKEN, COOKIE_OPTIONS } = require('../config/constants');
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -80,10 +80,25 @@ const registerUser = asyncHandler( async (req, res) => {
     throw new ApiError(500, 'Something went worng while registering the user.');
   }
 
+  // Add Access/Refresh Token into Response
+  const {accessToken, refreshToken } = await generateAccessAndRefreshToken(createdUser._id);
+
   // send res
-  res.status(201).json(
-    new ApiResponse(200, createdUser, "User registered successfully!!")
-  );
+  return res
+    .status(201)
+    .cookie(ACCESS_TOKEN, accessToken, COOKIE_OPTIONS)
+    .cookie(REFRESH_TOKEN, refreshToken, COOKIE_OPTIONS)
+    .json(
+      new ApiResponse(
+        200, 
+        {
+          accessToken,
+          refreshToken,
+          createdUser
+        },
+        "User registered successfully!!"
+      )
+    );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -120,8 +135,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, COOKIE_OPTIONS)
-    .cookie("refreshToken", refreshToken, COOKIE_OPTIONS)
+    .cookie(ACCESS_TOKEN, accessToken, COOKIE_OPTIONS)
+    .cookie(REFRESH_TOKEN, refreshToken, COOKIE_OPTIONS)
     .json(
       new ApiResponse(
         200,
@@ -148,8 +163,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie('accessToken', COOKIE_OPTIONS)
-    .clearCookie('refreshToken', COOKIE_OPTIONS)
+    .clearCookie(ACCESS_TOKEN, COOKIE_OPTIONS)
+    .clearCookie(REFRESH_TOKEN, COOKIE_OPTIONS)
     .json(
       new ApiResponse(200, {}, "User logged out")
     );
@@ -178,8 +193,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   
     return res
       .status(200)
-      .cookie("accessToken", accessToken, COOKIE_OPTIONS)
-      .cookie("refreshToken", refreshToken, COOKIE_OPTIONS)
+      .cookie(ACCESS_TOKEN, accessToken, COOKIE_OPTIONS)
+      .cookie(REFRESH_TOKEN, refreshToken, COOKIE_OPTIONS)
       .json(
         new ApiResponse(
           200,
@@ -192,9 +207,27 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await userService.findById(req.user?._id, true);
+  const isCorrectPassword = await user.isPasswordCorrect(oldPassword);
+  if (!isCorrectPassword) {
+    throw new ApiError(400, 'Invalid old Password');
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed"));
+});
+
 module.exports = { 
   registerUser,
   loginUser,
   logoutUser,
-  refreshAccessToken
+  refreshAccessToken,
+  changePassword
 };

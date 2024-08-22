@@ -5,6 +5,7 @@ const ApiResponse = require('../utils/ApiResponse');
 const { uploadOnCloudinary } = require('../utils/cloudinary');
 const userService = require('../services/user.service');
 const { ACCESS_TOKEN, REFRESH_TOKEN, COOKIE_OPTIONS } = require('../config/constants');
+const { registrationSchema, loginSchema, changePasswordSchema } = require('../config/validationSchema');
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -23,13 +24,14 @@ const generateAccessAndRefreshToken = async (userId) => {
 }
 
 const registerUser = asyncHandler( async (req, res) => {
+  // Validate user data
+  const { error } = registrationSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message, error.details);
+  }
+  
   // Get user data from request body
   const { username, email, name, password } = req.body;
-
-  // Validate user data
-  if ([name, email, username, password].some(field => field?.trim() === "")) {
-    throw new ApiError(400, "All fields are required");
-  }
 
   // check if yser already exists: username, email
   const existedUser = await userService.findOne({
@@ -102,37 +104,27 @@ const registerUser = asyncHandler( async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  // get data from req.body
-  const { email, username, password } = req.body;
-
-  console.log(username, email, password);
-
-  // validate data
-  if (!(username || email) || !password) {
-    throw new ApiError(409, "username or password is required");
+  const { error } = loginSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
   }
+  
+  const { email, password } = req.body;
 
-  // find the user
-  const user = await userService.findOne({
-    $or: [{username}, {email}]
-  });
-
+  const user = await userService.findOne({ email });
   if (!user) {
     throw new ApiError(404, "User does not exist!");
   }
 
-  // password check
   const isPasswordCorrect = await user.isPasswordCorrect(password);
   if (!isPasswordCorrect) {
     throw new ApiError(401, "Invalid user credentials");
   }
 
-  // generate access/refresh token
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
 
-  // Send Response to User with tokens & User Data
   const loogedInUser = await userService.findById(user._id);
-
+  
   return res
     .status(200)
     .cookie(ACCESS_TOKEN, accessToken, COOKIE_OPTIONS)
@@ -208,6 +200,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const changePassword = asyncHandler(async (req, res) => {
+  const { error } = changePasswordSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(400, error.details[0].message);
+  }
+
   const { oldPassword, newPassword } = req.body;
 
   const user = await userService.findById(req.user?._id, true);
@@ -224,10 +221,21 @@ const changePassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Password changed"));
 });
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(
+      200,
+      req.user,
+      "Current User fetched successfully!!"
+    ));
+});
+
 module.exports = { 
   registerUser,
   loginUser,
   logoutUser,
   refreshAccessToken,
-  changePassword
+  changePassword,
+  getCurrentUser
 };
